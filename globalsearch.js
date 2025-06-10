@@ -1882,38 +1882,18 @@ class SearchOverlayContent {
     }
 
     applyKeyEvents() {
-        this.events["keydown"].push({
-            handler: (e) => {
-                if (e.key === "Escape") {
-                    if (this.elements.input.value !== "") {
-                        this.elements.input.value = "";
-                        return;
-                    }
-					debugger;
-					// Get the iframe element by its ID
-var iframe = document.getElementById('SujitID_1234657');
-
-// Check if the iframe exists
-if (iframe) {
-    // Remove the iframe from the DOM
-    iframe.remove();
-} else {
-    console.error('Iframe not found');
+    this.events["keydown"].push({
+        handler: (e) => {
+            if (e.key === "Escape") {
+                e.preventDefault(); // Add this to prevent any default behavior
+                this.searchOverlay.style.display = 'none';
+                this.searchOverlay.style.backdropFilter = 'none'; // Remove any filter immediately
+                this.deactivate();
+            }
+        },
+        originalHandler: (e) => {} 
+    })
 }
-
-                    if (state.itemTypeName !== "ItemType") {
-                        state.reset();
-                        return;
-                    }
-					
-                    this.searchOverlay.style.display = 'none';
-                    this.deactivate();
-					
-                }
-            },
-            originalHandler: (e) => {} // Only needed when perma removing handler, not required
-        })
-    }
     
     remove() {
         if (this.elements.root) {
@@ -1969,21 +1949,17 @@ if (iframe) {
     }
 
     deactivate() {
-        setTimeout(() => {
-            this.searchOverlay.style.backdropFilter = "blur(0px) brightness(25%)";
-            setTimeout(() => {
-                this.searchOverlay.style.display = "none";
-            }, 400)
-        }, 1);
-        for (const handler of this.events["input"]) {
-            this.elements.input.removeEventListener("input", handler);
-        }
-        for (const handler of this.events["keydown"]) {
-            top.document.removeEventListener("keydown", handler);
-        }
-        state.reset();
-        this.isActive = false;
+    this.searchOverlay.style.display = "none";
+    this.searchOverlay.style.backdropFilter = "none";
+    for (const handler of this.events["input"]) {
+        this.elements.input.removeEventListener("input", handler);
     }
+    for (const handler of this.events["keydown"]) {
+        top.document.removeEventListener("keydown", handler);
+    }
+    state.reset();
+    this.isActive = false;
+}
     
     getRoot() {
         if (!this.elements.root) {
