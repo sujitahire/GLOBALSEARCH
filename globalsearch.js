@@ -1841,7 +1841,7 @@ class SearchOverlayContent {
         this.events = {
             "input": [],
             "keydown": []
-        }
+        };
         this.searchOverlay = searchOverlay;
 
         this.createDom(title, inputPlaceholder);
@@ -1857,7 +1857,7 @@ class SearchOverlayContent {
         state.searchOverlayContent = this;
         state.reset();
     }
-    
+
     createDom(title, inputPlaceholder) {
         this.remove();
 
@@ -1867,7 +1867,7 @@ class SearchOverlayContent {
         this.elements.title = top.document.createElement("h2");
         this.elements.title.classList.add("m-05");
         this.elements.title.textContent = title;
-        
+
         this.elements.input = top.document.createElement("input");
         this.elements.input.classList.add("search-input");
         this.elements.input.type = "text";
@@ -1875,26 +1875,24 @@ class SearchOverlayContent {
         this.elements.input.spellCheck = false;
 
         this.elements.searchResults = new SearchResults([], this);
-        
+
         this.elements.root.appendChild(this.elements.title);
         this.elements.root.appendChild(this.elements.input);
         this.elements.root.appendChild(this.elements.searchResults.getRoot());
     }
 
     applyKeyEvents() {
-    this.events["keydown"].push({
-        handler: (e) => {
-            if (e.key === "Escape") {
-                e.preventDefault(); // Add this to prevent any default behavior
-                this.searchOverlay.style.display = 'none';
-                this.searchOverlay.style.backdropFilter = 'none'; // Remove any filter immediately
-                this.deactivate();
-            }
-        },
-        originalHandler: (e) => {} 
-    })
-}
-    
+        this.events["keydown"].push({
+            handler: (e) => {
+                if (e.key === "Escape") {
+                    e.preventDefault();
+                    this.deactivate();
+                }
+            },
+            originalHandler: (e) => {}
+        });
+    }
+
     remove() {
         if (this.elements.root) {
             this.elements.root.remove();
@@ -1913,15 +1911,15 @@ class SearchOverlayContent {
             originalHandler: handler
         });
     }
+
     off(event, handler) {
         if (!this.events[event]) {
             console.assert(`Event ${event} is not supported`);
         }
-        
+
         this.events[event] = this.events[event].filter(existingEvent => existingEvent.originalHandler !== handler);
     }
-    
-    // To be called from outside when search items are fetched
+
     handlesearchItemsData(searchItemsData) {
         searchItemsData.forEach(searchItemData => {
             if (!searchItemData.imageFileId || this.cache["images"][searchItemData.imageFileId]) return;
@@ -1949,18 +1947,18 @@ class SearchOverlayContent {
     }
 
     deactivate() {
-    this.searchOverlay.style.display = "none";
-    this.searchOverlay.style.backdropFilter = "none";
-    for (const handler of this.events["input"]) {
-        this.elements.input.removeEventListener("input", handler);
+        this.searchOverlay.style.display = "none";
+        this.searchOverlay.style.backdropFilter = "none";
+        for (const handler of this.events["input"]) {
+            this.elements.input.removeEventListener("input", handler.handler);
+        }
+        for (const handler of this.events["keydown"]) {
+            top.document.removeEventListener("keydown", handler.handler);
+        }
+        state.reset();
+        this.isActive = false;
     }
-    for (const handler of this.events["keydown"]) {
-        top.document.removeEventListener("keydown", handler);
-    }
-    state.reset();
-    this.isActive = false;
-}
-    
+
     getRoot() {
         if (!this.elements.root) {
             throw new Error("Call to get root but root doesn't exist");
@@ -1968,6 +1966,23 @@ class SearchOverlayContent {
         return this.elements.root;
     }
 }
+
+const start = () => {
+    if (!window.aras) return;
+    if (!window.top || window.top !== window) return;
+
+    const searchOverlay = top.document.createElement("div");
+    searchOverlay.classList.add("overlay");
+    const searchOverlayContent = new SearchOverlayContent("Search ItemTypes", "ItemTypes", searchOverlay);
+
+    searchOverlayContent.on("input", fetcher, searchOverlayContent);
+    top.document.body.appendChild(searchOverlay);
+    attachCss();
+    listenShortcut(top.document, searchOverlayContent);
+};
+
+start();
+
 const getAllItems = (itemTypeName, defaultImage, cache) => {
 
     const items = aras.IomInnovator.applyAML(`
