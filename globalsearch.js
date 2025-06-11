@@ -1585,37 +1585,45 @@ async function _get(key) {
  * @prop {Element[]} attachedIframes
  * @prop {SearchItem[]} openedItems
  */
+/**
+ * @type {Object} 
+ * @prop {String} itemTypeName
+ * @prop {SearchOverlayContent} searchOverlayContent
+ * @prop {Function} reset
+ * @prop {Function} setItemTypeName
+ * @prop {String} defaultImage
+ * @prop {Element[]} attachedIframes
+ * @prop {SearchItem[]} openedItems
+ */
 const state = {
-	itemTypeName: "ItemType",
-	searchOverlayContent: null,
-	reset: function() {
-		this.itemTypeName = "ItemType";
-		this.defaultImage = "../images/ItemType.svg";
-		this.searchOverlayContent.elements.title.textContent = "ItemTypes";
-		this.searchOverlayContent.elements.input.value = "";
-		this.searchOverlayContent.elements.input.placeholder = `Search ItemType`;
-		this.openedItems = this.openedItems.slice(-9)
-		this.searchOverlayContent.handlesearchItemsData(this.openedItems.map(s => s.data).reverse());
-	}
-	,
-	setItemTypeName: function(name, label_plural, defaultImage) {
-		this.itemTypeName = name;
-		this.defaultImage = defaultImage || "../images/DefaultItemType.svg";
-		this.searchOverlayContent.elements.title.textContent = label_plural;
-		this.searchOverlayContent.elements.input.value = "";
-		this.searchOverlayContent.elements.input.placeholder = `Search ${label_plural}`;
-		this.searchOverlayContent.handlesearchItemsData([]);
-	},
-	defaultImage: null,
-	attachedIframes: [],
-	openedItems: [],
+    itemTypeName: "ItemType",
+    searchOverlayContent: null,
+    reset: function() {
+        this.itemTypeName = "ItemType";
+        this.defaultImage = "../images/ItemType.svg";
+        this.searchOverlayContent.elements.title.textContent = "ItemTypes";
+        this.searchOverlayContent.elements.input.value = "";
+        this.searchOverlayContent.elements.input.placeholder = `Search ItemType`;
+        this.openedItems = this.openedItems.slice(-9)
+        this.searchOverlayContent.handlesearchItemsData(this.openedItems.map(s => s.data).reverse());
+    },
+    setItemTypeName: function(name, label_plural, defaultImage) {
+        this.itemTypeName = name;
+        this.defaultImage = defaultImage || "../images/DefaultItemType.svg";
+        this.searchOverlayContent.elements.title.textContent = label_plural;
+        this.searchOverlayContent.elements.input.value = "";
+        this.searchOverlayContent.elements.input.placeholder = `Search ${label_plural}`;
+        this.searchOverlayContent.handlesearchItemsData([]);
+    },
+    defaultImage: null,
+    attachedIframes: [],
+    openedItems: [],
 }
-
 
 class SearchItem {
     constructor(name, description, image, index, data) {
         this.elements = {};
-        this.data = data; // Straight from what fetch() returns
+        this.data = data;
         this.index = index;
         this.createDom(image, name, description, index);
     }
@@ -1629,7 +1637,6 @@ class SearchItem {
         const content = top.document.createElement("div");
         content.classList.add("flex-row", "jcc", "aic");
         this.elements.image = top.document.createElement("img");
-        // this.elements.image.src = image || "";
         this.elements.image.src = image || `https://picsum.photos/seed/${Date.now()}/50/50`;
         const nameDescriptionContainer = top.document.createElement("div");
         nameDescriptionContainer.classList.add("flex-col");
@@ -1650,22 +1657,6 @@ class SearchItem {
         this.elements.root.appendChild(this.elements.index);
     }
 
-    // get name() {
-    //     return this.elements.name.textContent;
-    // }
-
-    // set name(name) {
-    //     this.elements.name.textContent = name;
-    // }
-
-    // get description() {
-    //     return this.elements.description.textContent;
-    // }
-
-    // set description(description) {
-    //     this.elements.description.textContent = description;
-    // }
-
     remove() {
         if (this.elements.root) {
             this.elements.root.remove();
@@ -1682,17 +1673,6 @@ class SearchItem {
 }
 
 class SearchResults {
-    /**
-     *  ```js
-     *  searchItemsData = {
-     *      image,
-     *      name,
-     *      description
-     *  }
-     *  ```
-     * 
-     * The array is used as reference
-     */
     constructor(searchItemsData, searchOverlayContent) {
         console.assert(searchItemsData instanceof Array, "searchItems be an array");
         this.searchOverlayContent = searchOverlayContent;
@@ -1700,9 +1680,7 @@ class SearchResults {
         this.searchItems = [];
         this.setSearchResults(searchItemsData);
         this.associatedShortcuts = {
-            "keydown": [
-                // ...handlers
-            ]
+            "keydown": []
         };
     }
 
@@ -1739,14 +1717,12 @@ class SearchResults {
 
         this.searchItems.forEach(searchItem => {
             const shortcutHandlerOpen = (e) => {
-
                 if ((e.keyCode === 48 + searchItem.index)
                     && e.ctrlKey
                     && e.altKey
                     && !e.shiftKey
                     && searchItem.data.itemTypeName === "ItemType"
                 ) {
-                    // Open SearchGrid
                     e.preventDefault();
                     this.searchOverlayContent.elements.input.value = "";
                     this.searchOverlayContent.deactivate();
@@ -1758,28 +1734,24 @@ class SearchResults {
                     && !e.shiftKey
                     && searchItem.data.itemTypeName !== "ItemType"
                 ) {
-                    // Open SearchGrid
                     e.preventDefault();
                     this.searchOverlayContent.elements.input.value = "";
                     this.searchOverlayContent.deactivate();
                     state.openedItems.push(searchItem);
-                    state.openedItems = keepUniqueOrdered(state.openedItems)
-                    console.log(state.openedItems)
+                    state.openedItems = keepUniqueOrdered(state.openedItems);
                     arasTabs.openSearch(searchItem.data.itemConfigId);
                 }
-
                 else if (
                     (e.keyCode === 48 + searchItem.index)
                     && e.ctrlKey
                     && !e.altKey
                     && !e.shiftKey
                 ) {
-                    // Open item
                     e.preventDefault();
                     this.searchOverlayContent.elements.input.value = "";
                     this.searchOverlayContent.deactivate();
                     state.openedItems.push(searchItem);
-                    state.openedItems = keepUniqueOrdered(state.openedItems)
+                    state.openedItems = keepUniqueOrdered(state.openedItems);
                     const item = aras.IomInnovator.newItem(searchItem.data.itemTypeName, "get");
                     item.setAttribute("select", "id");
                     item.setProperty("config_id", searchItem.data.itemConfigId);
@@ -1792,7 +1764,6 @@ class SearchResults {
                     && e.shiftKey
                     && searchItem.data.itemTypeName === "ItemType"
                 ) {
-                    // Add item
                     const item = aras.IomInnovator.newItem(searchItem.data.name, "add");
                     this.searchOverlayContent.elements.input.value = "";
                     this.searchOverlayContent.deactivate();
@@ -1805,11 +1776,10 @@ class SearchResults {
                     && !e.ctrlKey
                     && !e.shiftKey
                 ) {
-                    // Search Items
                     e.preventDefault();
                     this.searchOverlayContent.elements.input.value = "";
                     state.openedItems.push(searchItem);
-                    state.openedItems = keepUniqueOrdered(state.openedItems)
+                    state.openedItems = keepUniqueOrdered(state.openedItems);
                     state.setItemTypeName(searchItem.data.name, searchItem.data.label_plural || searchItem.data.name, searchItem.elements.image.src);
                 }
             } : null;
@@ -1843,17 +1813,14 @@ class SearchOverlayContent {
             "keydown": []
         }
         this.searchOverlay = searchOverlay;
+        this.isActive = false;
+        this.cache = {
+            images: {}
+        };
 
         this.createDom(title, inputPlaceholder);
         searchOverlay.appendChild(this.getRoot());
         this.applyKeyEvents();
-        this.isActive = false;
-
-        this.cache = {
-            images: {
-                // "fileId": "imageUrl"
-            }
-        };
         state.searchOverlayContent = this;
         state.reset();
     }
@@ -1893,11 +1860,10 @@ class SearchOverlayContent {
                         state.reset();
                         return;
                     }
-                    this.searchOverlay.style.display = 'none';
                     this.deactivate();
                 }
             },
-            originalHandler: (e) => {} // Only needed when perma removing handler, not required
+            originalHandler: (e) => {}
         })
     }
     
@@ -1919,15 +1885,14 @@ class SearchOverlayContent {
             originalHandler: handler
         });
     }
+
     off(event, handler) {
         if (!this.events[event]) {
             console.assert(`Event ${event} is not supported`);
         }
-        
         this.events[event] = this.events[event].filter(existingEvent => existingEvent.originalHandler !== handler);
     }
     
-    // To be called from outside when search items are fetched
     handlesearchItemsData(searchItemsData) {
         searchItemsData.forEach(searchItemData => {
             if (!searchItemData.imageFileId || this.cache["images"][searchItemData.imageFileId]) return;
@@ -1938,7 +1903,8 @@ class SearchOverlayContent {
     }
 
     activate() {
-        console.assert(this.elements.root !== null, "Root is null when content is activated");
+        if (this.isActive) return;
+        
         this.searchOverlay.style.display = "block";
         setTimeout(() => {
             this.searchOverlay.style.backdropFilter = "blur(3px) brightness(25%)";
@@ -1955,6 +1921,8 @@ class SearchOverlayContent {
     }
 
     deactivate() {
+        if (!this.isActive) return;
+        
         setTimeout(() => {
             this.searchOverlay.style.backdropFilter = "blur(0px) brightness(25%)";
             setTimeout(() => {
@@ -1978,8 +1946,8 @@ class SearchOverlayContent {
         return this.elements.root;
     }
 }
-const getAllItems = (itemTypeName, defaultImage, cache) => {
 
+const getAllItems = (itemTypeName, defaultImage, cache) => {
     const items = aras.IomInnovator.applyAML(`
     <AML>
         <Item
@@ -2028,43 +1996,26 @@ const getAllItems = (itemTypeName, defaultImage, cache) => {
 }
 
 const fetcher = async (e, searchOverlayContent) => {
-	if (!localStorage.getItem(`_${state.itemTypeName}_aras_power_search_cache`)) {
-		const _items = getAllItems(
-			state.itemTypeName,
-			state.defaultImage,
-			searchOverlayContent.cache
-		);
+    if (!localStorage.getItem(`_${state.itemTypeName}_aras_power_search_cache`)) {
+        const _items = getAllItems(
+            state.itemTypeName,
+            state.defaultImage,
+            searchOverlayContent.cache
+        );
 
-		localStorage.setItem(`_${state.itemTypeName}_aras_power_search_cache`, JSON.stringify(_items));
-	}
-	const items = JSON.parse(localStorage.getItem(`_${state.itemTypeName}_aras_power_search_cache`)) || [];
-	const fuseOptions = {
-		// isCaseSensitive: e.target.value.trim().toLowerCase() != e.target.value.trim(),
-		// includeScore: false,
-		// shouldSort: true,
-		// includeMatches: false,
-		// findAllMatches: false,
-		// minMatchCharLength: 1,
-		// location: 0,
-		// threshold: 0.6,
-		// distance: 100,
-		// useExtendedSearch: false,
-		// ignoreLocation: false,
-		// ignoreFieldNorm: false,
-		// fieldNormWeight: 1,
-		keys: ["itemTypeName", "itemConfigId", "name"],
-	};
+        localStorage.setItem(`_${state.itemTypeName}_aras_power_search_cache`, JSON.stringify(_items));
+    }
+    const items = JSON.parse(localStorage.getItem(`_${state.itemTypeName}_aras_power_search_cache`)) || [];
+    const fuseOptions = {
+        keys: ["itemTypeName", "itemConfigId", "name"],
+    };
 
-	const fuse = new Fuse(items, fuseOptions);
-	const searchPattern = e.target.value.trim();
-	const searched = fuse.search(searchPattern);
-	searchOverlayContent.handlesearchItemsData(searched.map((element) => element.item).slice(0, 9));
+    const fuse = new Fuse(items, fuseOptions);
+    const searchPattern = e.target.value.trim();
+    const searched = fuse.search(searchPattern);
+    searchOverlayContent.handlesearchItemsData(searched.map((element) => element.item).slice(0, 9));
 };
 
-/**
- * @param {Element} doc
- * @param {SearchOverlayContent} searchOverlayContent
- */
 const listenShortcut = (doc, searchOverlayContent) => {
     const handleshortcut = (e) => {
         if (e.keyCode === 75
@@ -2072,12 +2023,14 @@ const listenShortcut = (doc, searchOverlayContent) => {
             && !e.altKey
             && !e.shiftKey
         ) {
-
             e.preventDefault();
-            if (searchOverlayContent.isActive) return;
-            state.openedItems = state.openedItems.slice(-9);
-            searchOverlayContent.handlesearchItemsData(state.openedItems.map(x => x.data).reverse());
-            searchOverlayContent.activate();
+            if (searchOverlayContent.isActive) {
+                searchOverlayContent.deactivate();
+            } else {
+                state.openedItems = state.openedItems.slice(-9);
+                searchOverlayContent.handlesearchItemsData(state.openedItems.map(x => x.data).reverse());
+                searchOverlayContent.activate();
+            }
         }
         else if (e.keyCode === 75
             && e.ctrlKey
@@ -2122,8 +2075,8 @@ const listenShortcut = (doc, searchOverlayContent) => {
         childList: true,
         subtree: true,
     });
-
 }
+
 const attachCss = () => {
     const styles = top.document.createElement("style");
     styles.innerHTML = `
@@ -2134,8 +2087,8 @@ const attachCss = () => {
         left: 0;
         width: 100%;
         height: 100%;
-        backdrop-filter: blur(0px) ;
-        transition: backdrop-filter 0.2s linear ;
+        backdrop-filter: blur(0px);
+        transition: backdrop-filter 0.2s linear;
         z-index: 1000;
     }
     
@@ -2159,7 +2112,6 @@ const attachCss = () => {
         font-family: sans-serif;
         font-size: 1.3rem;
         outline: none;
-    
     }
     
     .searchResults {
@@ -2173,7 +2125,6 @@ const attachCss = () => {
         font-weight: bold;
         font-size: 1.2rem;
         padding: 5px 15px 5px 5px;
-        /* margin-bottom: 5px; */
         cursor: pointer;
         border-radius: 5px;
     }
@@ -2206,119 +2157,18 @@ const attachCss = () => {
         margin: .5rem;
     }
     
-    /* Font weights */
     .fw-normal {
         font-weight: normal;
     }
-    /**
-    * power-border start
-    */
-    .card {
-      padding: 1rem;
-      position: relative;
-      border-radius: 10px;
-    }
-    @property --angle {
-      syntax: "<angle>";
-      initial-value: 0deg;
-      inherits: false;
-    }
-
-    .card::after,
-    .card::before {
-      content: "";
-      position: absolute;
-      background-image: conic-gradient(from var(--angle), orange, transparent, blue, transparent, orange);
-
-      height: 100%;
-      width: 100%;
-      top: 50%;
-      left: 50%;
-      translate: -50% -50%;
-      z-index: -1;
-      padding: 3px;
-      border-radius: 10px;
-      animation: 3s spin linear infinite;
-    }
-
-    .card::before {
-      filter: blur(5px);
-      opacity: 30%;
-    }
-
-    @keyframes spin {
-      from {
-        --angle: 0deg;
-      }
-      to {
-        --angle: 360deg;
-      }
-    }
-
-    /**
-    * power-border end
-    */
-
-    ` ;
+    `;
     top.document.head.appendChild(styles);
 }
-const aras_time_from_js_time = (timestamp) => {
-    let date = new Date(timestamp);
-    let isoString = date.toISOString(); // "2024-06-27T14:31:36.000Z"
-
-    // Removing milliseconds and the 'Z' character (if needed)
-    isoString = isoString.split('.')[0];
-}
-const refresh_cache_bak = () => {
-    console.log("Cleared aras-power-search cache");
-    top.aras.AlertSuccess("refresh_cache");
-    const itemTypesToUpdate = Object.entries(localStorage)
-        .filter(([key, _]) => key.endsWith("_aras_power_search_cache"))
-        .map(([key, _]) => key.slice(1, -("_aras_power_search_cache".length)));
-    for (let itemTypeName of itemTypesToUpdate) {
-        const modified_on_time = Number.parseInt(localStorage.getItem(`_${itemTypeName}_aras_power_search_timestamp`));
-        const aras_time = aras_time_from_js_time(modified_on_time);
-        const raw_result = aras.IomInnovator.applyAML(`
-    <AML>
-        <Item type="${itemTypeName}" 
-              action="get" 
-              select"config_id">
-            <modified_on condition="ge">${aras_time}</modified_on>
-        </Item>
-    </AML>`);
-        const results = [];
-        for (let i = 0; i < raw_result.getItemCount(); i++) {
-            results.push({
-                config_id: raw_result.getProperty("config_id"),
-                id: raw_result.getProperty("id")
-            });
-        }
-        const cached_items = JSON.parse(localStorage.getItem(`_${itemTypeName}_aras_power_search_cache`));
-        debugger;
-        for (let i = 0; i < results.length; i++) {
-            for (let j = 0; j < cached_items.length; j++) {
-                if (results[i].config_id == cached_items[j].config_id) {
-                    console.assert(
-                        typeof (cached_items[j].id) === "string"
-                        && typeof (results[i].id === "string"),
-                        "Major fault",
-                    )
-                    cached_items[j].id = results[i].id;
-                }
-            }
-        }
-
-        localStorage.setItem(`_${itemTypeName}_aras_power_search_cache`, JSON.stringify(cached_items),);
-
-    }
-
-};
-
 
 const start = () => {
     if (!window.aras) return;
     if (!window.top || window.top !== window) return;
 
+    // Create overlay once at startup
     const searchOverlay = top.document.createElement("div");
     searchOverlay.classList.add("overlay");
     const searchOverlayContent = new SearchOverlayContent("Search ItemTypes", "ItemTypes", searchOverlay);
@@ -2327,16 +2177,6 @@ const start = () => {
     top.document.body.appendChild(searchOverlay);
     attachCss();
     listenShortcut(top.document, searchOverlayContent);
-    const refresh_cache = () => {
-        const itemTypes = Object.entries(localStorage)
-            .filter(([key, _]) => key.endsWith("_aras_power_search_cache"))
-            .map(([key, _]) => key.slice(1).slice(0, -("_aras_power_search_cache").length));
-        for (let itemTypeName of itemTypes) {
-            const items = getAllItems(itemTypeName, state.defaultImage, searchOverlayContent.cache);
-            localStorage.setItem(`_${itemTypeName}_aras_power_search_cache`, JSON.stringify(items));
-        }
-        aras.AlertSuccess("Cache Refreshed")
-    }
-    // setInterval(refresh_cache, 30_000);
 }
+
 start();
