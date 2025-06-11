@@ -1601,24 +1601,33 @@ const state = {
     reset: function() {
         this.itemTypeName = "ItemType";
         this.defaultImage = "../images/ItemType.svg";
-        this.searchOverlayContent.elements.title.textContent = "ItemTypes";
-        this.searchOverlayContent.elements.input.value = "";
-        this.searchOverlayContent.elements.input.placeholder = `Search ItemType`;
-        this.openedItems = this.openedItems.slice(-9)
-        this.searchOverlayContent.handlesearchItemsData(this.openedItems.map(s => s.data).reverse());
+        if (this.searchOverlayContent) {
+            this.searchOverlayContent.elements.title.textContent = "ItemTypes";
+            this.searchOverlayContent.elements.input.value = "";
+            this.searchOverlayContent.elements.input.placeholder = `Search ItemType`;
+        }
+        this.openedItems = this.openedItems.slice(-9);
+        if (this.searchOverlayContent) {
+            this.searchOverlayContent.handlesearchItemsData(this.openedItems.map(s => s.data).reverse());
+        }
     },
     setItemTypeName: function(name, label_plural, defaultImage) {
         this.itemTypeName = name;
         this.defaultImage = defaultImage || "../images/DefaultItemType.svg";
-        this.searchOverlayContent.elements.title.textContent = label_plural;
-        this.searchOverlayContent.elements.input.value = "";
-        this.searchOverlayContent.elements.input.placeholder = `Search ${label_plural}`;
-        this.searchOverlayContent.handlesearchItemsData([]);
+        if (this.searchOverlayContent) {
+            this.searchOverlayContent.elements.title.textContent = label_plural;
+            this.searchOverlayContent.elements.input.value = "";
+            this.searchOverlayContent.elements.input.placeholder = `Search ${label_plural}`;
+            this.searchOverlayContent.handlesearchItemsData([]);
+        }
     },
     defaultImage: null,
     attachedIframes: [],
     openedItems: [],
+    overlayElement: null,
+    searchOverlayInstance: null
 }
+
 
 class SearchItem {
     constructor(name, description, image, index, data) {
@@ -2018,64 +2027,129 @@ const fetcher = async (e, searchOverlayContent) => {
 
 const listenShortcut = (doc, searchOverlayContent) => {
     const handleshortcut = (e) => {
-        if (e.keyCode === 75
-            && e.ctrlKey
-            && !e.altKey
-            && !e.shiftKey
-        ) {
+        // Ctrl+K - Toggle search overlay
+        if (e.keyCode === 75 && e.ctrlKey && !e.altKey && !e.shiftKey) {
             e.preventDefault();
-            if (searchOverlayContent.isActive) {
-                searchOverlayContent.deactivate();
-            } else {
-                state.openedItems = state.openedItems.slice(-9);
-                searchOverlayContent.handlesearchItemsData(state.openedItems.map(x => x.data).reverse());
-                searchOverlayContent.activate();
+            
+            // If overlay exists and is active, deactivate and remove it
+            if (state.overlayElement && state.searchOverlayInstance?.isActive) {
+                state.searchOverlayInstance.deactivate();
+                setTimeout(() => {
+                    if (state.overlayElement.parentNode) {
+                        state.overlayElement.remove();
+                    }
+                    state.overlayElement = null;
+                    state.searchOverlayInstance = null;
+                }, 400); // Match the fade-out duration
+                return;
             }
+            
+            // Remove any existing overlay first
+            if (state.overlayElement && state.overlayElement.parentNode) {
+                state.overlayElement.remove();
+            }
+            
+            // Create new overlay container
+            state.overlayElement = top.document.createElement("div");
+            state.overlayElement.classList.add("overlay");
+            
+            // Create new overlay content instance
+            state.searchOverlayInstance = new SearchOverlayContent(
+                "Search ItemTypes", 
+                "ItemTypes", 
+                state.overlayElement
+            );
+            
+            // Set up event listeners
+            state.searchOverlayInstance.on("input", fetcher, state.searchOverlayInstance);
+            state.searchOverlayContent = state.searchOverlayInstance;
+            
+            // Add to DOM
+            top.document.body.appendChild(state.overlayElement);
+            
+            // Initialize with recent items
+            state.openedItems = state.openedItems.slice(-9);
+            state.searchOverlayInstance.handlesearchItemsData(
+                state.openedItems.map(x => x.data).reverse()
+            );
+            
+            // Activate the new overlay
+            state.searchOverlayInstance.activate();
         }
-        else if (e.keyCode === 75
-            && e.ctrlKey
-            && !e.altKey
-            && e.shiftKey
-        ) {
+        // Ctrl+Shift+K - Clear cache
+        else if (e.keyCode === 75 && e.ctrlKey && !e.altKey && e.shiftKey) {
             e.preventDefault();
             Object.entries(localStorage)
-                .filter(([key, _]) => key.endsWith("_aras_power_search_cache") || key.endsWith("_aras_power_search_timestamp"))
-                .forEach(([key, _]) => localStorage.removeItem(key));
-            top.aras.AlertSuccess("Cleared aras-power-search cache")
+                .filter(([key]) => key.endsWith("_aras_power_search_cache") || 
+                                  key.endsWith("_aras_power_search_timestamp"))
+                .forEach(([key]) => localStorage.removeItem(key));
+            top.aras.AlertSuccess("Cleared aras-power-search cache");
         }
-    }
-    doc.addEventListener("keydown", handleshortcut);
-    doc.querySelectorAll("iframe").forEach(iframe => {
-        listenShortcut(iframe.contentWindow.document, searchOverlayContent);
-    });
-
-    const observer = new MutationObserver((mutationsList) => {
-        for (const mutation of mutationsList) {
-            if (mutation.type === 'childList') {
-                mutation.addedNodes.forEach(node => {
-                    if (node.tagName === 'IFRAME') {
-                        node.addEventListener('load', (e) => {
-                            if (node.getAttribute('id') && state.attachedIframes.find(iframeId => iframeId === node.getAttribute('id')) != undefined) {
-                                return
-                            }
-                            state.attachedIframes.push(node.getAttribute('id'));
-                            listenShortcut(node.contentWindow.document, searchOverlayContent);
-                        })
-                    }
-                });
-                mutation.removedNodes.forEach(node => {
-                    if (node.tagName === 'IFRAME') {
-                        state.attachedIframes.splice(state.attachedIframes.findIndex(iframe => node.getAttribute('id') === iframe), 1);
-                    }
-                });
+        // Alt+Number - Change search type
+        else if (e.altKey && !e.ctrlKey && !e.shiftKey && 
+                e.keyCode >= 49 && e.keyCode <= 57) {
+            const index = e.keyCode - 49;
+            if (state.searchOverlayInstance?.searchItems[index]) {
+                e.preventDefault();
+                const item = state.searchOverlayInstance.searchItems[index].data;
+                if (item.itemTypeName === "ItemType") {
+                    state.searchOverlayInstance.elements.input.value = "";
+                    state.openedItems.push(state.searchOverlayInstance.searchItems[index]);
+                    state.openedItems = keepUniqueOrdered(state.openedItems);
+                    state.setItemTypeName(item.name, item.label_plural || item.name, item.image);
+                }
             }
         }
+    };
+
+    // Add main shortcut listener
+    doc.addEventListener("keydown", handleshortcut);
+
+    // Handle iframes
+    const handleIframe = (iframe) => {
+        if (!iframe.contentWindow) return;
+        
+        // Skip if already attached
+        const iframeId = iframe.getAttribute('id');
+        if (iframeId && state.attachedIframes.includes(iframeId)) {
+            return;
+        }
+
+        iframe.addEventListener('load', () => {
+            if (iframeId) {
+                state.attachedIframes.push(iframeId);
+            }
+            listenShortcut(iframe.contentWindow.document, searchOverlayContent);
+        });
+    };
+
+    // Setup existing iframes
+    doc.querySelectorAll("iframe").forEach(handleIframe);
+
+    // Watch for new iframes
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+                if (node.tagName === 'IFRAME') {
+                    handleIframe(node);
+                }
+            });
+            mutation.removedNodes.forEach((node) => {
+                if (node.tagName === 'IFRAME') {
+                    const iframeId = node.getAttribute('id');
+                    if (iframeId) {
+                        state.attachedIframes = state.attachedIframes.filter(id => id !== iframeId);
+                    }
+                }
+            });
+        });
     });
-    observer.observe(document.body, {
+
+    observer.observe(doc.body, {
         childList: true,
-        subtree: true,
+        subtree: true
     });
-}
+};
 
 const attachCss = () => {
     const styles = top.document.createElement("style");
@@ -2168,15 +2242,13 @@ const start = () => {
     if (!window.aras) return;
     if (!window.top || window.top !== window) return;
 
-    // Create overlay once at startup
-    const searchOverlay = top.document.createElement("div");
-    searchOverlay.classList.add("overlay");
-    const searchOverlayContent = new SearchOverlayContent("Search ItemTypes", "ItemTypes", searchOverlay);
-
-    searchOverlayContent.on("input", fetcher, searchOverlayContent);
-    top.document.body.appendChild(searchOverlay);
+    // Only attach CSS once
     attachCss();
-    listenShortcut(top.document, searchOverlayContent);
-}
+    
+    // Set up the initial shortcut listener
+    listenShortcut(top.document, null);
+    
+    // Don't create overlay here - let the shortcut handler manage it
+};
 
 start();
