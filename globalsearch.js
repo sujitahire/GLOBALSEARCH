@@ -1967,22 +1967,6 @@ class SearchOverlayContent {
     }
 }
 
-const start = () => {
-    if (!window.aras) return;
-    if (!window.top || window.top !== window) return;
-
-    const searchOverlay = top.document.createElement("div");
-    searchOverlay.classList.add("overlay");
-    const searchOverlayContent = new SearchOverlayContent("Search ItemTypes", "ItemTypes", searchOverlay);
-
-    searchOverlayContent.on("input", fetcher, searchOverlayContent);
-    top.document.body.appendChild(searchOverlay);
-    attachCss();
-    listenShortcut(top.document, searchOverlayContent);
-};
-
-start();
-
 const getAllItems = (itemTypeName, defaultImage, cache) => {
 
     const items = aras.IomInnovator.applyAML(`
@@ -2316,7 +2300,32 @@ const refresh_cache_bak = () => {
         localStorage.setItem(`_${itemTypeName}_aras_power_search_cache`, JSON.stringify(cached_items),);
 
     }
+	
+const start = () => {
+    if (!window.aras) return;
+    if (!window.top || window.top !== window) return;
 
+    const searchOverlay = top.document.createElement("div");
+    searchOverlay.classList.add("overlay");
+    const searchOverlayContent = new SearchOverlayContent("Search ItemTypes", "ItemTypes", searchOverlay);
+
+    searchOverlayContent.on("input", fetcher, searchOverlayContent);
+    top.document.body.appendChild(searchOverlay);
+    attachCss();
+    listenShortcut(top.document, searchOverlayContent);
+    const refresh_cache = () => {
+        const itemTypes = Object.entries(localStorage)
+            .filter(([key, _]) => key.endsWith("_aras_power_search_cache"))
+            .map(([key, _]) => key.slice(1).slice(0, -("_aras_power_search_cache").length));
+        for (let itemTypeName of itemTypes) {
+            const items = getAllItems(itemTypeName, state.defaultImage, searchOverlayContent.cache);
+            localStorage.setItem(`_${itemTypeName}_aras_power_search_cache`, JSON.stringify(items));
+        }
+        aras.AlertSuccess("Cache Refreshed")
+    }
+    // setInterval(refresh_cache, 30_000);
+}
+start();
 };
 
 
