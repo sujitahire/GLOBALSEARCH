@@ -1364,8 +1364,21 @@ const debounce = function (delay, at_begin, callback) {
     return jq_throttle(delay, callback, at_begin !== false);
 };
 const keepUniqueOrdered = (arr) => {
-    return [...new Set(arr.map(JSON.stringify))].map(JSON.parse);
-}
+    return [...new Set(arr.map(item => JSON.stringify({
+        name: item.data.name,
+        description: item.data.description,
+        image: item.data.image,
+        itemId: item.data.itemId,
+        itemConfigId: item.data.itemConfigId,
+        label_plural: item.data.label_plural,
+        itemTypeId: item.data.itemTypeId,
+        itemTypeName: item.data.itemTypeName,
+        imageFileId: item.data.imageFileId
+    })))].map(str => {
+        const data = JSON.parse(str);
+        return new SearchItem(data.name, data.description, data.image, 0, data, null);
+    });
+};
 
 function getUrlFromFileId(aras, fileId) {
 	let file = aras.IomInnovator.newItem("File", "get");
@@ -1630,7 +1643,7 @@ const state = {
 
 
 class SearchItem {
-    constructor(name, description, image, index, data, searchOverlayContent) {
+    constructor(name, description, image, index, data, searchOverlayContent = null) {
         this.elements = {};
         this.data = data;
         this.index = index;
@@ -1672,65 +1685,101 @@ class SearchItem {
     }
 
     handleClick(e) {
-        if (!this.searchOverlayContent || !this.searchOverlayContent.elements) {
-            console.error("Search overlay content not properly initialized");
-            return;
-        }
-
-        this.searchOverlayContent.elements.input.value = "";
-        
-        if (this.data.itemTypeName === "ItemType") {
-            if (e.ctrlKey && e.altKey && e.shiftKey) {
-                // Ctrl+Alt+Shift+Click - Create new item
-                const item = aras.IomInnovator.newItem(this.data.name, "add");
-                this.searchOverlayContent.deactivate();
-                aras.uiShowItemEx(item.node);
-            } else if (e.ctrlKey && e.altKey) {
-                // Ctrl+Alt+Click - Open in search tab
-                this.searchOverlayContent.deactivate();
-                arasTabs.openSearch(this.data.itemConfigId);
-            } else if (e.ctrlKey) {
-                // Ctrl+Click - Open item form
-                this.searchOverlayContent.deactivate();
-                const item = aras.IomInnovator.newItem(this.data.itemTypeName, "get");
-                item.setAttribute("select", "id");
-                item.setProperty("config_id", this.data.itemConfigId);
-                aras.uiShowItem(this.data.itemTypeName, item.apply().getID());
-            } else {
-                // Regular click - Change search type (for ItemTypes)
-                state.openedItems.push(this);
-                state.openedItems = keepUniqueOrdered(state.openedItems);
-                state.setItemTypeName(this.data.name, this.data.label_plural || this.data.name, this.elements.image.src);
-            }
-        } else {
-            if (e.ctrlKey && e.altKey) {
-                // Ctrl+Alt+Click - Open in search tab
-                this.searchOverlayContent.deactivate();
-                state.openedItems.push(this);
-                state.openedItems = keepUniqueOrdered(state.openedItems);
-                arasTabs.openSearch(this.data.itemConfigId);
-            } else if (e.ctrlKey) {
-                // Ctrl+Click - Open item form
-                this.searchOverlayContent.deactivate();
-                state.openedItems.push(this);
-                state.openedItems = keepUniqueOrdered(state.openedItems);
-                const item = aras.IomInnovator.newItem(this.data.itemTypeName, "get");
-                item.setAttribute("select", "id");
-                item.setProperty("config_id", this.data.itemConfigId);
-                aras.uiShowItem(this.data.itemTypeName, item.apply().getID());
-            } else {
-                // Regular click - Open item form (default behavior)
-                this.searchOverlayContent.deactivate();
-                state.openedItems.push(this);
-                state.openedItems = keepUniqueOrdered(state.openedItems);
-                const item = aras.IomInnovator.newItem(this.data.itemTypeName, "get");
-                item.setAttribute("select", "id");
-                item.setProperty("config_id", this.data.itemConfigId);
-                aras.uiShowItem(this.data.itemTypeName, item.apply().getID());
-            }
-        }
+    if (!this.searchOverlayContent || !this.searchOverlayContent.elements) {
+        console.error("Search overlay content not properly initialized");
+        return;
     }
 
+    this.searchOverlayContent.elements.input.value = "";
+    
+    // Create a clean data object without circular references
+    const cleanData = {
+        name: this.data.name,
+        description: this.data.description,
+        image: this.data.image,
+        itemId: this.data.itemId,
+        itemConfigId: this.data.itemConfigId,
+        label_plural: this.data.label_plural,
+        itemTypeId: this.data.itemTypeId,
+        itemTypeName: this.data.itemTypeName,
+        imageFileId: this.data.imageFileId
+    };
+
+    if (this.data.itemTypeName === "ItemType") {
+        if (e.ctrlKey && e.altKey && e.shiftKey) {
+            // Ctrl+Alt+Shift+Click - Create new item
+            const item = aras.IomInnovator.newItem(this.data.name, "add");
+            this.searchOverlayContent.deactivate();
+            aras.uiShowItemEx(item.node);
+        } else if (e.ctrlKey && e.altKey) {
+            // Ctrl+Alt+Click - Open in search tab
+            this.searchOverlayContent.deactivate();
+            arasTabs.openSearch(this.data.itemConfigId);
+        } else if (e.ctrlKey) {
+            // Ctrl+Click - Open item form
+            this.searchOverlayContent.deactivate();
+            const item = aras.IomInnovator.newItem(this.data.itemTypeName, "get");
+            item.setAttribute("select", "id");
+            item.setProperty("config_id", this.data.itemConfigId);
+            aras.uiShowItem(this.data.itemTypeName, item.apply().getID());
+        } else {
+            // Regular click - Change search type (for ItemTypes)
+            state.openedItems.push(new SearchItem(
+                this.data.name,
+                this.data.description,
+                this.data.image,
+                0,
+                cleanData
+            ));
+            state.openedItems = keepUniqueOrdered(state.openedItems);
+            state.setItemTypeName(this.data.name, this.data.label_plural || this.data.name, this.elements.image.src);
+        }
+    } else {
+        if (e.ctrlKey && e.altKey) {
+            // Ctrl+Alt+Click - Open in search tab
+            this.searchOverlayContent.deactivate();
+            state.openedItems.push(new SearchItem(
+                this.data.name,
+                this.data.description,
+                this.data.image,
+                0,
+                cleanData
+            ));
+            state.openedItems = keepUniqueOrdered(state.openedItems);
+            arasTabs.openSearch(this.data.itemConfigId);
+        } else if (e.ctrlKey) {
+            // Ctrl+Click - Open item form
+            this.searchOverlayContent.deactivate();
+            state.openedItems.push(new SearchItem(
+                this.data.name,
+                this.data.description,
+                this.data.image,
+                0,
+                cleanData
+            ));
+            state.openedItems = keepUniqueOrdered(state.openedItems);
+            const item = aras.IomInnovator.newItem(this.data.itemTypeName, "get");
+            item.setAttribute("select", "id");
+            item.setProperty("config_id", this.data.itemConfigId);
+            aras.uiShowItem(this.data.itemTypeName, item.apply().getID());
+        } else {
+            // Regular click - Open item form (default behavior)
+            this.searchOverlayContent.deactivate();
+            state.openedItems.push(new SearchItem(
+                this.data.name,
+                this.data.description,
+                this.data.image,
+                0,
+                cleanData
+            ));
+            state.openedItems = keepUniqueOrdered(state.openedItems);
+            const item = aras.IomInnovator.newItem(this.data.itemTypeName, "get");
+            item.setAttribute("select", "id");
+            item.setProperty("config_id", this.data.itemConfigId);
+            aras.uiShowItem(this.data.itemTypeName, item.apply().getID());
+        }
+    }
+}
     remove() {
         if (this.elements.root) {
             this.elements.root.removeEventListener("click", this.clickHandler);
