@@ -1664,10 +1664,78 @@ class SearchItem {
 
         this.elements.root.appendChild(content);
         this.elements.root.appendChild(this.elements.index);
+
+        // Add click event handler
+        this.elements.root.addEventListener("click", (e) => {
+            this.handleClick(e);
+        });
+    }
+
+    handleClick(e) {
+        if (this.data.itemTypeName === "ItemType") {
+            // For ItemType items
+            if (e.ctrlKey && e.altKey) {
+                // Ctrl+Alt+Click - Open in search tab
+                this.searchOverlayContent.elements.input.value = "";
+                this.searchOverlayContent.deactivate();
+                arasTabs.openSearch(this.data.itemConfigId);
+            } else if (e.ctrlKey && e.altKey && e.shiftKey) {
+                // Ctrl+Alt+Shift+Click - Create new item
+                const item = aras.IomInnovator.newItem(this.data.name, "add");
+                this.searchOverlayContent.elements.input.value = "";
+                this.searchOverlayContent.deactivate();
+                aras.uiShowItemEx(item.node);
+            } else if (e.ctrlKey) {
+                // Ctrl+Click - Open item form
+                this.searchOverlayContent.elements.input.value = "";
+                this.searchOverlayContent.deactivate();
+                const item = aras.IomInnovator.newItem(this.data.itemTypeName, "get");
+                item.setAttribute("select", "id");
+                item.setProperty("config_id", this.data.itemConfigId);
+                aras.uiShowItem(this.data.itemTypeName, item.apply().getID());
+            } else {
+                // Regular click - Change search type (for ItemTypes)
+                this.searchOverlayContent.elements.input.value = "";
+                state.openedItems.push(this);
+                state.openedItems = keepUniqueOrdered(state.openedItems);
+                state.setItemTypeName(this.data.name, this.data.label_plural || this.data.name, this.elements.image.src);
+            }
+        } else {
+            // For non-ItemType items
+            if (e.ctrlKey && e.altKey) {
+                // Ctrl+Alt+Click - Open in search tab
+                this.searchOverlayContent.elements.input.value = "";
+                this.searchOverlayContent.deactivate();
+                state.openedItems.push(this);
+                state.openedItems = keepUniqueOrdered(state.openedItems);
+                arasTabs.openSearch(this.data.itemConfigId);
+            } else if (e.ctrlKey) {
+                // Ctrl+Click - Open item form
+                this.searchOverlayContent.elements.input.value = "";
+                this.searchOverlayContent.deactivate();
+                state.openedItems.push(this);
+                state.openedItems = keepUniqueOrdered(state.openedItems);
+                const item = aras.IomInnovator.newItem(this.data.itemTypeName, "get");
+                item.setAttribute("select", "id");
+                item.setProperty("config_id", this.data.itemConfigId);
+                aras.uiShowItem(this.data.itemTypeName, item.apply().getID());
+            } else {
+                // Regular click - Open item form (default behavior)
+                this.searchOverlayContent.elements.input.value = "";
+                this.searchOverlayContent.deactivate();
+                state.openedItems.push(this);
+                state.openedItems = keepUniqueOrdered(state.openedItems);
+                const item = aras.IomInnovator.newItem(this.data.itemTypeName, "get");
+                item.setAttribute("select", "id");
+                item.setProperty("config_id", this.data.itemConfigId);
+                aras.uiShowItem(this.data.itemTypeName, item.apply().getID());
+            }
+        }
     }
 
     remove() {
         if (this.elements.root) {
+            this.elements.root.removeEventListener("click", this.handleClick);
             this.elements.root.remove();
         }
         this.elements = {};
@@ -1680,7 +1748,6 @@ class SearchItem {
         return this.elements.root;
     }
 }
-
 class SearchResults {
     constructor(searchItemsData, searchOverlayContent) {
         console.assert(searchItemsData instanceof Array, "searchItems be an array");
