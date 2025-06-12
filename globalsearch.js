@@ -1630,10 +1630,11 @@ const state = {
 
 
 class SearchItem {
-    constructor(name, description, image, index, data) {
+    constructor(name, description, image, index, data, searchOverlayContent) {
         this.elements = {};
         this.data = data;
         this.index = index;
+        this.searchOverlayContent = searchOverlayContent;
         this.createDom(image, name, description, index);
     }
 
@@ -1665,29 +1666,31 @@ class SearchItem {
         this.elements.root.appendChild(content);
         this.elements.root.appendChild(this.elements.index);
 
-        // Add click event handler
-        this.elements.root.addEventListener("click", (e) => {
-            this.handleClick(e);
-        });
+        // Store reference to the handler so we can remove it later
+        this.clickHandler = (e) => this.handleClick(e);
+        this.elements.root.addEventListener("click", this.clickHandler);
     }
 
     handleClick(e) {
+        if (!this.searchOverlayContent || !this.searchOverlayContent.elements) {
+            console.error("Search overlay content not properly initialized");
+            return;
+        }
+
+        this.searchOverlayContent.elements.input.value = "";
+        
         if (this.data.itemTypeName === "ItemType") {
-            // For ItemType items
-            if (e.ctrlKey && e.altKey) {
-                // Ctrl+Alt+Click - Open in search tab
-                this.searchOverlayContent.elements.input.value = "";
-                this.searchOverlayContent.deactivate();
-                arasTabs.openSearch(this.data.itemConfigId);
-            } else if (e.ctrlKey && e.altKey && e.shiftKey) {
+            if (e.ctrlKey && e.altKey && e.shiftKey) {
                 // Ctrl+Alt+Shift+Click - Create new item
                 const item = aras.IomInnovator.newItem(this.data.name, "add");
-                this.searchOverlayContent.elements.input.value = "";
                 this.searchOverlayContent.deactivate();
                 aras.uiShowItemEx(item.node);
+            } else if (e.ctrlKey && e.altKey) {
+                // Ctrl+Alt+Click - Open in search tab
+                this.searchOverlayContent.deactivate();
+                arasTabs.openSearch(this.data.itemConfigId);
             } else if (e.ctrlKey) {
                 // Ctrl+Click - Open item form
-                this.searchOverlayContent.elements.input.value = "";
                 this.searchOverlayContent.deactivate();
                 const item = aras.IomInnovator.newItem(this.data.itemTypeName, "get");
                 item.setAttribute("select", "id");
@@ -1695,23 +1698,19 @@ class SearchItem {
                 aras.uiShowItem(this.data.itemTypeName, item.apply().getID());
             } else {
                 // Regular click - Change search type (for ItemTypes)
-                this.searchOverlayContent.elements.input.value = "";
                 state.openedItems.push(this);
                 state.openedItems = keepUniqueOrdered(state.openedItems);
                 state.setItemTypeName(this.data.name, this.data.label_plural || this.data.name, this.elements.image.src);
             }
         } else {
-            // For non-ItemType items
             if (e.ctrlKey && e.altKey) {
                 // Ctrl+Alt+Click - Open in search tab
-                this.searchOverlayContent.elements.input.value = "";
                 this.searchOverlayContent.deactivate();
                 state.openedItems.push(this);
                 state.openedItems = keepUniqueOrdered(state.openedItems);
                 arasTabs.openSearch(this.data.itemConfigId);
             } else if (e.ctrlKey) {
                 // Ctrl+Click - Open item form
-                this.searchOverlayContent.elements.input.value = "";
                 this.searchOverlayContent.deactivate();
                 state.openedItems.push(this);
                 state.openedItems = keepUniqueOrdered(state.openedItems);
@@ -1721,7 +1720,6 @@ class SearchItem {
                 aras.uiShowItem(this.data.itemTypeName, item.apply().getID());
             } else {
                 // Regular click - Open item form (default behavior)
-                this.searchOverlayContent.elements.input.value = "";
                 this.searchOverlayContent.deactivate();
                 state.openedItems.push(this);
                 state.openedItems = keepUniqueOrdered(state.openedItems);
@@ -1735,7 +1733,7 @@ class SearchItem {
 
     remove() {
         if (this.elements.root) {
-            this.elements.root.removeEventListener("click", this.handleClick);
+            this.elements.root.removeEventListener("click", this.clickHandler);
             this.elements.root.remove();
         }
         this.elements = {};
@@ -1748,6 +1746,7 @@ class SearchItem {
         return this.elements.root;
     }
 }
+
 class SearchResults {
     constructor(searchItemsData, searchOverlayContent) {
         console.assert(searchItemsData instanceof Array, "searchItems be an array");
@@ -1755,9 +1754,6 @@ class SearchResults {
         this.elements = {};
         this.searchItems = [];
         this.setSearchResults(searchItemsData);
-        this.associatedShortcuts = {
-            "keydown": []
-        };
     }
 
     setSearchResults(searchItemsData) {
@@ -1765,11 +1761,16 @@ class SearchResults {
         this.elements.root = top.document.createElement("div");
         this.elements.root.classList.add("searchResults");
         searchItemsData.forEach((searchItemData, i) => {
-            this.searchItems[i] = new SearchItem(searchItemData.name, searchItemData.description, searchItemData.image, i + 1, searchItemData);
+            this.searchItems[i] = new SearchItem(
+                searchItemData.name, 
+                searchItemData.description, 
+                searchItemData.image, 
+                i + 1, 
+                searchItemData,
+                this.searchOverlayContent  // Pass the reference to search overlay content
+            );
             this.elements.root.appendChild(this.searchItems[i].getRoot());
         });
-
-        this.setKeyboardShortcuts(true);
     }
 
     remove() {
